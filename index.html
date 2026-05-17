@@ -2,7 +2,7 @@
 <html lang="zh-CN">
 <head>
     <meta charset="UTF-8">
-    <title>SVG绘图</title>
+    <title>edit-SVG</title>
     <style>
         * {margin:0;padding:0;box-sizing:border-box;font-family:Arial}
         .box{display:flex;flex-direction:column;height:100vh}
@@ -106,15 +106,12 @@ function applyLanguage(lang) {
   setCookie('lang', lang);
 }
 
-// 切换语言
 langBtn.addEventListener('click', () => {
   applyLanguage(currentLang === 'zh' ? 'en' : 'zh');
 });
 
-// 初始化语言
 applyLanguage(currentLang);
 
-// ==================== 原有功能代码（已适配语言） ====================
 exportSvgBtn.onclick = () => {
     const cloneSvg = svg.cloneNode(true);
     cloneSvg.querySelectorAll('.line-point,.guide-line,#selectionRect').forEach(el=>el.remove());
