@@ -1,0 +1,54 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta content="image/svg+xml" http-equiv="Content-Type">
+  <title>SVG 查看</title>
+  <style>
+    *{margin:0;padding:0;box-sizing:border-box}
+    html,body{width:100%;height:100%}
+    body{display:grid;place-items:center;background:#f5f5f5}
+    #svgContainer{
+      background:#fff;
+      border:1px solid #ddd;
+      max-width:100%;
+      max-height:100%;
+      display:flex;
+      align-items:center;
+      justify-content:center;
+    }
+    #svgContainer svg {
+      max-width:100%;
+      max-height:100%;
+      display:block;
+    }
+  </style>
+</head>
+<body>
+  <div id="svgContainer"></div>
+
+  <script>
+    const params = new URLSearchParams(window.location.search);
+    const svgRaw = params.get('svg');
+
+    if (svgRaw) {
+      try {
+        const svgStr = decodeURIComponent(svgRaw.replace(/\+/g, ' '));
+        const container = document.getElementById('svgContainer');
+        container.innerHTML = svgStr;
+        const svg = container.querySelector('svg');
+        if (svg) {
+          if (!svg.hasAttribute('width')) svg.setAttribute('width', '100%');
+          if (!svg.hasAttribute('height')) svg.setAttribute('height', '100%');
+          svg.setAttribute('preserveAspectRatio', 'xMidYMid meet');
+        }
+      } catch (e) {
+        document.getElementById('svgContainer').innerHTML = 
+          `<pre>SVG 渲染失败：${e.message}</pre>`;
+      }
+    } else {
+      document.getElementById('svgContainer').innerText = "未提供 SVG 数据";
+    }
+  </script>
+</body>
+</html>
