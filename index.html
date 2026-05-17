@@ -33,6 +33,7 @@
             <button class="btn" id="lineBtn">直线</button>
             <button class="btn" id="circleBtn">圆形</button>
             <button class="btn" id="cutBtn">截断(直线)</button>
+            <button class="btn" id="changeBtn">圆变多边形</button>
             <button class="btn" id="clearBtn">清空</button>
             <div class="dropdown">
                 <button class="dropbtn" id="menuBtn">文件</button>
@@ -53,23 +54,24 @@
 
     <script>
         const svg = document.getElementById('svg');
+        const cutBtn = document.getElementById('cutBtn');
         const selBtn = document.getElementById('selBtn');
         const lineBtn = document.getElementById('lineBtn');
         const langBtn = document.getElementById('langBtn');
         const clearBtn = document.getElementById('clearBtn');
+        const changeBtn= document.getElementById('changeBtn');
+        const fileInput = document.getElementById('fileInput');
         const circleBtn = document.getElementById('circleBtn');
-        const cutBtn = document.getElementById('cutBtn');
         const importBtn = document.getElementById('importBtn');
         const copyLinkBtn = document.getElementById('copyLinkBtn');
         const exportSvgBtn = document.getElementById('exportSvgBtn');
         const exportPngBtn = document.getElementById('exportPngBtn');
-        const fileInput = document.getElementById('fileInput');
-
         const translations = {
             zh: {
                 select: "选择",
                 line: "直线",
                 circle: "圆形",
+                change: "圆变多边形",
                 cut: "截断",
                 clear: "清空",
                 import: "导入SVG",
@@ -87,6 +89,7 @@
                 select: "Select",
                 line: "Line",
                 circle: "Circle",
+                change: "Circle change to polygon",
                 cut: "Cut",
                 clear: "Clear",
                 import: "Import SVG",
@@ -126,6 +129,7 @@
             exportSvgBtn.textContent = t.exportS;
             exportPngBtn.textContent = t.exportP;
             copyLinkBtn.textContent = t.copyLink;
+            changeBtn.textContent = t.change;
             langBtn.textContent = lang === 'zh' ? t.switchToEnglish : t.switchToChinese;
             document.documentElement.lang = lang;
             currentLang = lang;
@@ -155,6 +159,9 @@
                     const importedSvg = tempDiv.querySelector('svg');
                     if (importedSvg) {
                         svg.innerHTML = importedSvg.innerHTML;
+                        
+                        fixImportedLines();
+                        
                         clearSelection();
                         removeSelectionRect();
                         alert(translations[currentLang].importSuccess);
@@ -168,6 +175,21 @@
             };
             reader.readAsText(file);
         };
+        function fixImportedLines() {
+            const lines = svg.querySelectorAll('line:not(.guide-line)');
+            
+            lines.forEach(line => {
+                const x1 = line.getAttribute('x1');
+                const y1 = line.getAttribute('y1');
+                const x2 = line.getAttribute('x2');
+                const y2 = line.getAttribute('y2');
+                const p1 = makePoint(x1, y1);
+                const p2 = makePoint(x2, y2);
+                bindLineToPoints(line, p1, p2);
+                svg.insertBefore(p1, line);
+                svg.insertBefore(p2, line);
+            });
+        }
 
         exportSvgBtn.onclick = () => {
             const cloneSvg = svg.cloneNode(true);
@@ -762,6 +784,40 @@
                 item.pts.forEach(p=>svg.appendChild(p));
             });
 
+            clearSelection();
+        };
+        changeBtn.onclick = () => {
+            let circle = selected.find(el => el.tagName === 'circle' && !el.classList.contains('line-point'));
+            if (!circle) {
+                alert(currentLang === 'zh' ? '请先选中一个圆形！' : 'Please select a circle first!');
+                return;
+            }
+            let sides = parseInt(prompt(currentLang === 'zh' ? '请输入多边形边数：' : 'Enter polygon sides:', 6));
+            if (isNaN(sides) || sides < 3) {
+                alert(currentLang === 'zh' ? '边数必须≥3！' : 'Sides must ≥3!');
+                return;
+            }
+            let cx = +circle.getAttribute('cx');
+            let cy = +circle.getAttribute('cy');
+            let r = +circle.getAttribute('r');
+            let vertexList = [];
+            for (let i = 0; i < sides; i++) {
+                let angle = (i * 2 * Math.PI) / sides - Math.PI / 2;
+                let x = cx + r * Math.cos(angle);
+                let y = cy + r * Math.sin(angle);
+                vertexList.push({x, y});
+            }
+            for (let i = 0; i < sides; i++) {
+                let curr = vertexList[i];
+                let next = vertexList[(i + 1) % sides];
+                let p1 = makePoint(curr.x, curr.y);
+                let p2 = makePoint(next.x, next.y);
+                let line = makeLine(p1, p2);
+                svg.appendChild(p1);
+                svg.appendChild(p2);
+                svg.appendChild(line);
+            }
+            circle.remove();
             clearSelection();
         };
     </script>
