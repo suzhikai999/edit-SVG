@@ -32,6 +32,7 @@
             <button class="btn" id="selBtn">选择</button>
             <button class="btn" id="lineBtn">直线</button>
             <button class="btn" id="circleBtn">圆形</button>
+            <button class="btn" id="cutBtn">截断(直线)</button>
             <button class="btn" id="clearBtn">清空</button>
             <div class="dropdown">
                 <button class="dropbtn" id="menuBtn">文件</button>
@@ -46,7 +47,7 @@
             <input type="file" id="fileInput" accept=".svg">
         </div>
         <div class="canvas">
-            <svg id="svg" width="1400" height="800" xmlns="http://www.w3.org/2000/svg"></svg>
+            <svg id="svg" width="1400" height="700" xmlns="http://www.w3.org/2000/svg"></svg>
         </div>
     </div>
 
@@ -57,6 +58,7 @@
         const langBtn = document.getElementById('langBtn');
         const clearBtn = document.getElementById('clearBtn');
         const circleBtn = document.getElementById('circleBtn');
+        const cutBtn = document.getElementById('cutBtn');
         const importBtn = document.getElementById('importBtn');
         const copyLinkBtn = document.getElementById('copyLinkBtn');
         const exportSvgBtn = document.getElementById('exportSvgBtn');
@@ -68,6 +70,7 @@
                 select: "选择",
                 line: "直线",
                 circle: "圆形",
+                cut: "截断",
                 clear: "清空",
                 import: "导入SVG",
                 exportS: "导出SVG",
@@ -84,6 +87,7 @@
                 select: "Select",
                 line: "Line",
                 circle: "Circle",
+                cut: "Cut",
                 clear: "Clear",
                 import: "Import SVG",
                 exportS: "Export SVG",
@@ -116,6 +120,7 @@
             selBtn.textContent = t.select;
             lineBtn.textContent = t.line;
             circleBtn.textContent = t.circle;
+            cutBtn.textContent = t.cut;
             clearBtn.textContent = t.clear;
             importBtn.textContent = t.import;
             exportSvgBtn.textContent = t.exportS;
@@ -222,9 +227,41 @@
         const snapDist = 12;
         let guideLines = [];
         let isMouseDown=false;
+        const moveStep = 5;
 
         document.addEventListener('keydown', (e) => {
-            if (tool === 'select' && (e.key === 'Delete' || e.key === 'Backspace')) {
+            if (tool === 'select' && selected.length) {
+                e.preventDefault();
+                let dx = 0, dy = 0;
+                switch (e.key) {
+                    case 'ArrowLeft': dx = -moveStep; break;
+                    case 'ArrowRight': dx = moveStep; break;
+                    case 'ArrowUp': dy = -moveStep; break;
+                    case 'ArrowDown': dy = moveStep; break;
+                }
+                if (dx || dy) {
+                    selected.forEach(el => {
+                        if (el.tagName === 'circle' && !el.classList.contains('line-point')) {
+                            el.cx.baseVal.value += dx;
+                            el.cy.baseVal.value += dy;
+                        }
+                        if (el.tagName === 'rect') {
+                            el.x.baseVal.value += dx;
+                            el.y.baseVal.value += dy;
+                        }
+                        if (el.tagName === 'line') el.update && el.update();
+                        if (el.classList.contains('line-point')) {
+                            el.cx.baseVal.value += dx;
+                            el.cy.baseVal.value += dy;
+                        }
+                    });
+                    if(selectionRect){
+                        selectionRect.x.baseVal.value+=dx;
+                        selectionRect.y.baseVal.value+=dy;
+                    }
+                }
+            }
+            if (e.key === 'Delete' || e.key === 'Backspace') {
                 const toRemove = new Set();
                 selected.forEach(el => {
                     toRemove.add(el);
@@ -557,7 +594,7 @@
                 const dx = p.x - dragStart.x;
                 const dy = p.y - dragStart.y;
                 selected.forEach(el => {
-                    if(el.tagName === 'circle'){
+                    if(el.tagName === 'circle' && !el.classList.contains('line-point')){
                         el.cx.baseVal.value += dx;
                         el.cy.baseVal.value += dy;
                     }
@@ -565,8 +602,10 @@
                         el.x.baseVal.value += dx;
                         el.y.baseVal.value += dy;
                     }
-                    if(el.tagName === 'line'){
-                        el.update();
+                    if(el.tagName === 'line') el.update && el.update();
+                    if(el.classList.contains('line-point')){
+                        el.cx.baseVal.value += dx;
+                        el.cy.baseVal.value += dy;
                     }
                 });
                 dragStart = p;
@@ -586,6 +625,145 @@
         };
 
         selBtn.click();
+
+        function getLinePoints(line) {
+            return [
+                { x: +line.getAttribute('x1'), y: +line.getAttribute('y1') },
+                { x: +line.getAttribute('x2'), y: +line.getAttribute('y2') }
+            ];
+        }
+
+        function lineLineIntersection(ax1,ay1,ax2,ay2,bx1,by1,bx2,by2) {
+            const den = (ax1-ax2)*(by1-by2) - (ay1-ay2)*(bx1-bx2);
+            if (Math.abs(den) < 1e-6) return null;
+            const t = ((ax1-bx1)*(by1-by2)-(ay1-by1)*(bx1-bx2)) / den;
+            const u = -((ax1-ax2)*(ay1-by1)-(ay1-ay2)*(ax1-bx1)) / den;
+            if (t > 0.01 && t < 0.99 && u > 0.01 && u < 0.99) {
+                return { x: ax1 + t*(ax2-ax1), y: ay1 + t*(ay2-ay1) };
+            }
+            return null;
+        }
+
+        function isPointOnSegment(pt, p1, p2) {
+            const cross = Math.abs((pt.x-p1.x)*(p2.y-p1.y) - (pt.y-p1.y)*(p2.x-p1.x));
+            if (cross > 1) return false;
+            const minX = Math.min(p1.x,p2.x)-1, maxX = Math.max(p1.x,p2.x)+1;
+            const minY = Math.min(p1.y,p2.y)-1, maxY = Math.max(p1.y,p2.y)+1;
+            return pt.x >= minX && pt.x <= maxX && pt.y >= minY && pt.y <= maxY;
+        }
+
+        function makePoint(x,y) {
+            const c = document.createElementNS("http://www.w3.org/2000/svg","circle");
+            c.setAttribute('class','line-point unselected');
+            c.setAttribute('cx',x);
+            c.setAttribute('cy',y);
+            return c;
+        }
+
+        function makeLine(p1,p2) {
+            const l = document.createElementNS("http://www.w3.org/2000/svg","line");
+            l.setAttribute('stroke','#000');
+            l.setAttribute('stroke-width','2');
+            bindLineToPoints(l,p1,p2);
+            return l;
+        }
+
+        function lineCircleIntersection(x1,y1,x2,y2,cx,cy,r) {
+            const dx = x2 - x1;
+            const dy = y2 - y1;
+            const fx = x1 - cx;
+            const fy = y1 - cy;
+            const a = dx*dx + dy*dy;
+            const b = 2*(fx*dx + fy*dy);
+            const c = fx*fx + fy*fy - r*r;
+            let det = b*b - 4*a*c;
+            if (det < 0) return [];
+            det = Math.sqrt(det);
+            const t1 = (-b - det) / (2*a);
+            const t2 = (-b + det) / (2*a);
+            const res = [];
+            if (t1 >= 0 && t1 <= 1) res.push({x:x1+t1*dx, y:y1+t1*dy});
+            if (t2 >= 0 && t2 <= 1 && Math.abs(t1-t2)>1e-8) res.push({x:x1+t2*dx, y:y1+t2*dy});
+            return res;
+        }
+
+        function circleCircleIntersection(cx1,cy1,r1,cx2,cy2,r2) {
+            const dx = cx2 - cx1;
+            const dy = cy2 - cy1;
+            const d = Math.hypot(dx, dy);
+            if (d > r1 + r2 || d < Math.abs(r1 - r2) || d < 1e-8) return [];
+            const a = (r1*r1 - r2*r2 + d*d) / (2*d);
+            const h = Math.sqrt(r1*r1 - a*a);
+            const xm = cx1 + dx*a/d;
+            const ym = cy1 + dy*a/d;
+            const xs1 = xm - dy*h/d;
+            const ys1 = ym + dx*h/d;
+            const xs2 = xm + dy*h/d;
+            const ys2 = ym - dx*h/d;
+            return [{x:xs1,y:ys1},{x:xs2,y:ys2}];
+        }
+
+        function angle(cx, cy, p) {
+            return Math.atan2(p.y - cy, p.x - cx);
+        }
+
+        cutBtn.onclick = () => {
+            if (!selected.length) return;
+            const toRemove = new Set();
+            const lineAddList = [];
+            const circleSplitList = [];
+
+            const lines = selected.filter(el => el.tagName === 'line');
+            const circles = selected.filter(el => el.tagName === 'circle' && !el.classList.contains('line-point'));
+
+            for (let i = 0; i < lines.length; i++) {
+                const A = lines[i];
+                const aPts = getLinePoints(A);
+                let segments = [[aPts[0], aPts[1]]];
+                for (let j = 0; j < lines.length; j++) {
+                    if (i === j) continue;
+                    const B = lines[j];
+                    const bPts = getLinePoints(B);
+                    const pt = lineLineIntersection(
+                        aPts[0].x, aPts[0].y, aPts[1].x, aPts[1].y,
+                        bPts[0].x, bPts[0].y, bPts[1].x, bPts[1].y
+                    );
+                    if (!pt) continue;
+                    const newSegments = [];
+                    for (const [p1, p2] of segments) {
+                        if (isPointOnSegment(pt, p1, p2)) {
+                            newSegments.push([p1, pt]);
+                            newSegments.push([pt, p2]);
+                        } else {
+                            newSegments.push([p1, p2]);
+                        }
+                    }
+                    segments = newSegments;
+                }
+                toRemove.add(A);
+                for (const [p1, p2] of segments) {
+                    lineAddList.push({p1,p2});
+                }
+            }
+
+            toRemove.forEach(el=>el.remove());
+
+            lineAddList.forEach(item=>{
+                let cp1 = makePoint(item.p1.x,item.p1.y);
+                let cp2 = makePoint(item.p2.x,item.p2.y);
+                let line = makeLine(cp1,cp2);
+                svg.appendChild(cp1);
+                svg.appendChild(cp2);
+                svg.appendChild(line);
+            });
+
+            circleSplitList.forEach(item=>{
+                svg.appendChild(item.el);
+                item.pts.forEach(p=>svg.appendChild(p));
+            });
+
+            clearSelection();
+        };
     </script>
 </body>
 </html>
