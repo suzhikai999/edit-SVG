@@ -58,8 +58,9 @@
         const selBtn = document.getElementById('selBtn');
         const lineBtn = document.getElementById('lineBtn');
         const langBtn = document.getElementById('langBtn');
+        const menuBtn = document.getElementById('menuBtn');
         const clearBtn = document.getElementById('clearBtn');
-        const changeBtn= document.getElementById('changeBtn');
+        const changeBtn = document.getElementById('changeBtn');
         const fileInput = document.getElementById('fileInput');
         const circleBtn = document.getElementById('circleBtn');
         const importBtn = document.getElementById('importBtn');
@@ -72,6 +73,7 @@
                 line: "直线",
                 circle: "圆形",
                 change: "圆变多边形",
+                file: "文件",
                 cut: "截断",
                 clear: "清空",
                 import: "导入SVG",
@@ -90,6 +92,7 @@
                 line: "Line",
                 circle: "Circle",
                 change: "Circle change to polygon",
+                file: "Files",
                 cut: "Cut",
                 clear: "Clear",
                 import: "Import SVG",
@@ -130,6 +133,7 @@
             exportPngBtn.textContent = t.exportP;
             copyLinkBtn.textContent = t.copyLink;
             changeBtn.textContent = t.change;
+            menuBtn.textContent = t.file;
             langBtn.textContent = lang === 'zh' ? t.switchToEnglish : t.switchToChinese;
             document.documentElement.lang = lang;
             currentLang = lang;
