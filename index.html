@@ -231,10 +231,9 @@
             cloneSvg.querySelectorAll('.line-point,.guide-line,#selectionRect').forEach(el => el.remove());
             const svgStr = new XMLSerializer().serializeToString(cloneSvg);
             try {
-                const encoded = encodeURIComponent(svgStr);
-                const base = window.location.href.split('/').slice(0, -1).join('/') + '/';
-                const url = base + `view-svg.html?svg=${encoded}`;
-                navigator.clipboard.writeText(url).then(() => {
+                const dataUrl = 'data:image/svg+xml;base64,' + btoa(unescape(encodeURIComponent(svgStr)));
+                
+                navigator.clipboard.writeText(dataUrl).then(() => {
                     alert(translations[currentLang].copySuccess);
                 });
             } catch (e) {
